@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>イベントQR受付</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--sub:#667085;--bd:#dfe3ea;--ac:#1f6feb;--ok:#12805c;--okbg:#dff6ec;--ng:#b42318;--ngbg:#fde8e6;--wn:#a15c07;--wnbg:#fff1d6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11151c;--card:#1a202b;--tx:#e8ecf3;--sub:#9aa4b5;--bd:#2c3547;--ac:#5b9bff;--ok:#4cd9a3;--okbg:#0f3a2b;--ng:#ff8a80;--ngbg:#4a1b17;--wn:#ffc261;--wnbg:#46320c}}
+:root[data-theme="dark"]{--bg:#11151c;--card:#1a202b;--tx:#e8ecf3;--sub:#9aa4b5;--bd:#2c3547;--ac:#5b9bff;--ok:#4cd9a3;--okbg:#0f3a2b;--ng:#ff8a80;--ngbg:#4a1b17;--wn:#ffc261;--wnbg:#46320c}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.6 -apple-system,"Hiragino Sans","Noto Sans JP",Meiryo,sans-serif}
+main{max-width:760px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 12px}h2{font-size:16px;margin:0 0 8px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font:inherit;font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+label{display:block;font-size:13px;color:var(--sub);margin:8px 0 2px}
+input,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{min-height:120px}
+.btn{padding:10px 14px;border:0;border-radius:8px;background:var(--ac);color:#fff;font:inherit;font-weight:600;cursor:pointer;margin:8px 6px 0 0}
+.btn.sub{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.note{font-size:13px;color:var(--sub)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.qc{border:1px solid var(--bd);border-radius:12px;padding:10px;text-align:center;background:#fff;color:#111;break-inside:avoid}
+.qc img{width:100%;max-width:150px;image-rendering:pixelated}
+.qc b{display:block;word-break:break-all}.qc small{color:#555}
+video{width:100%;border-radius:12px;background:#000;max-height:50vh}
+#res{border-radius:14px;padding:16px;margin:10px 0;text-align:center;font-size:20px;font-weight:700;display:none}
+#res small{display:block;font-weight:400;font-size:14px}
+.ok{background:var(--okbg);color:var(--ok)}.ng{background:var(--ngbg);color:var(--ng)}.wn{background:var(--wnbg);color:var(--wn)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:6px;border-bottom:1px solid var(--bd);text-align:left}
+.wrap{overflow-x:auto}.stat{font-size:15px;font-weight:600;margin-bottom:6px}
+.hide{display:none}
+@media print{body{background:#fff}.tabs,.noprint,h1{display:none!important}.card{border:0;padding:0}main{max-width:none;padding:0}}
+</style>
+</head>
+<body>
+<main>
+<h1>イベントQR受付</h1>
+<div class="tabs noprint"><button id="t1" class="on">① QR発行（主催者）</button><button id="t2">② 受付（スキャン）</button></div>
+
+<section id="p1">
+ <div class="card noprint">
+  <h2>参加者を登録してQRを作る</h2>
+  <label>イベントコード（半角英数。空欄なら自動）</label><input id="ecode" placeholder="例: SPRING26" maxlength="16">
+  <label>参加者名（1行に1人）</label><textarea id="names" placeholder="山田 太郎&#10;佐藤 花子"></textarea>
+  <button class="btn" id="gen">QRを作成</button>
+  <button class="btn sub" id="prt">まとめて印刷</button>
+  <button class="btn sub" id="cp">受付用名簿をコピー</button>
+  <p class="note">各QRは画像として保存し、メールやLINEで個別に配れます。「受付用名簿」を受付端末に貼ると、名簿にない人や未受付者もわかります。</p>
+ </div>
+ <div class="grid" id="cards"></div>
+</section>
+
+<section id="p2" class="hide">
+ <div class="card">
+  <label>イベントコード（QR発行時と同じもの）</label><input id="rcode" placeholder="例: SPRING26" maxlength="16">
+  <video id="v" playsinline muted></video>
+  <button class="btn" id="cam">カメラ開始</button>
+  <label style="display:inline-block;margin-top:8px"><span class="btn sub" style="display:inline-block">画像から読み取り</span><input id="file" type="file" accept="image/*" class="hide"></label>
+  <div id="res"></div>
+  <p class="note" id="camnote"></p>
+ </div>
+ <div class="card">
+  <h2>受付名簿（任意）</h2>
+  <textarea id="roster" placeholder="発行側の「受付用名簿をコピー」を貼り付け（ID,名前 の行）"></textarea>
+  <button class="btn sub" id="lr">名簿を読み込む</button>
+ </div>
+ <div class="card">
+  <div class="stat" id="stat"></div>
+  <div class="wrap"><table><thead><tr><th>時刻</th><th>ID</th><th>名前</th></tr></thead><tbody id="log"></tbody></table></div>
+  <button class="btn" id="csv">CSVで保存</button>
+  <button class="btn sub" id="clr">受付記録をリセット</button>
+  <p class="note">受付記録はこの端末のブラウザ内にだけ保存されます。受付端末を複数使う場合は、二重受付を端末間では検知できないので、CSVを統合してください。</p>
+ </div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const S={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let roster=S.get('roster',{}),checks=S.get('checks',{}),people=[];
+// タブ
+function tab(n){$('p1').classList.toggle('hide',n!=1);$('p2').classList.toggle('hide',n!=2);$('t1').classList.toggle('on',n==1);$('t2').classList.toggle('on',n==2);if(n==1)stop()}
+$('t1').onclick=()=>tab(1);$('t2').onclick=()=>tab(2);
+// 発行
+const AL='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const rid=()=>Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>AL[b%AL.length]).join('');
+$('gen').onclick=()=>{
+ let code=($('ecode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,''))||rid().slice(0,5);
+ $('ecode').value=code;$('rcode').value=code;
+ const names=$('names').value.split('\n').map(s=>s.trim()).filter(Boolean);
+ if(!names.length){alert('参加者名を入力してください');return}
+ people=names.map(n=>({id:rid(),name:n}));
+ $('cards').innerHTML='';
+ people.forEach(p=>{
+  const q=qrcode(0,'M');q.addData('QRCK|'+code+'|'+p.id+'|'+encodeURIComponent(p.name));q.make();
+  const url=q.createDataURL(6,4);
+  const d=document.createElement('div');d.className='qc';
+  d.innerHTML='<img alt="QR"><b></b><small>'+p.id+'</small><div class="noprint"><a class="note" download="">画像を保存</a></div>';
+  d.querySelector('img').src=url;d.querySelector('b').textContent=p.name;
+  const a=d.querySelector('a');a.href=url;a.download=p.name+'_'+p.id+'.gif';
+  $('cards').appendChild(d);
+ });
+};
+$('prt').onclick=()=>window.print();
+$('cp').onclick=async()=>{
+ if(!people.length){alert('先にQRを作成してください');return}
+ const t=people.map(p=>p.id+','+p.name).join('\n');
+ try{await navigator.clipboard.writeText(t);alert('コピーしました')}catch(e){$('names').value=t;alert('コピーできなかったので入力欄に表示しました')}
+};
+// 受付
+let stream=null,raf=0,last='',lastT=0;
+const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+function show(cls,main,sub){const r=$('res');r.className=cls;r.style.display='block';r.innerHTML=main+(sub?'<small>'+sub+'</small>':'')}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function handle(txt){
+ const now=Date.now();if(txt===last&&now-lastT<3000)return;last=txt;lastT=now;
+ const m=txt.split('|');
+ if(m[0]!=='QRCK'||m.length<4){show('ng','このQRは受付用ではありません');return}
+ const code=$('rcode').value.trim().toUpperCase();
+ if(!code){show('wn','イベントコードを入力してください');return}
+ if(m[1]!==code){show('ng','別イベントのQRです');return}
+ const id=m[2];let name;try{name=decodeURIComponent(m[3])}catch(e){name=m[3]}
+ if(Object.keys(roster).length&&!roster[id]){show('ng','名簿にないQRです',esc(name));return}
+ if(checks[id]){show('wn','受付済みです',esc(name)+'（'+checks[id].t+'）');return}
+ checks[id]={name,t:new Date().toLocaleTimeString('ja-JP')};S.set('checks',checks);
+ show('ok','受付完了 ✓',esc(name));render();
+ if(navigator.vibrate)navigator.vibrate(120);
+}
+function loop(){
+ const v=$('v');
+ if(v.readyState>=2){
+  cv.width=v.videoWidth;cv.height=v.videoHeight;cx.drawImage(v,0,0);
+  const im=cx.getImageData(0,0,cv.width,cv.height);
+  const c=jsQR(im.data,im.width,im.height,{inversionAttempts:'dontInvert'});
+  if(c&&c.data)handle(c.data);
+ }
+ raf=requestAnimationFrame(loop);
+}
+async function start(){
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  $('v').srcObject=stream;await $('v').play();$('cam').textContent='カメラ停止';$('camnote').textContent='';loop();
+ }catch(e){$('camnote').textContent='カメラを使えませんでした。ブラウザのカメラ許可を確認するか、「画像から読み取り」を使ってください。'}
+}
+function stop(){cancelAnimationFrame(raf);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$('v').srcObject=null;$('cam').textContent='カメラ開始'}
+$('cam').onclick=()=>stream?stop():start();
+$('file').onchange=e=>{
+ const f=e.target.files[0];if(!f)return;
+ const img=new Image();img.onload=()=>{
+  cv.width=img.width;cv.height=img.height;cx.drawImage(img,0,0);
+  const im=cx.getImageData(0,0,cv.width,cv.height);const c=jsQR(im.data,im.width,im.height);
+  last='';c?handle(c.data):show('ng','QRを読み取れませんでした');
+ };img.src=URL.createObjectURL(f);e.target.value='';
+};
+$('lr').onclick=()=>{
+ roster={};$('roster').value.split('\n').forEach(l=>{const i=l.indexOf(',');if(i>0)roster[l.slice(0,i).trim()]=l.slice(i+1).trim()});
+ S.set('roster',roster);render();alert(Object.keys(roster).length+'人の名簿を読み込みました');
+};
+function render(){
+ const ids=Object.keys(checks),total=Object.keys(roster).length;
+ $('stat').textContent=total?('受付 '+ids.length+' / '+total+' 人（未受付 '+(total-ids.filter(i=>roster[i]).length)+' 人）'):('受付済み '+ids.length+' 人');
+ $('log').innerHTML=ids.sort((a,b)=>checks[b].t.localeCompare(checks[a].t)).map(i=>'<tr><td>'+checks[i].t+'</td><td>'+i+'</td><td>'+esc(checks[i].name)+'</td></tr>').join('');
+}
+$('csv').onclick=()=>{
+ const rows=['ID,名前,受付時刻'].concat(Object.keys(checks).map(i=>i+','+checks[i].name.replace(/,/g,' ')+','+checks[i].t));
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.join('\n')],{type:'text/csv'}));a.download='checkin.csv';a.click();
+};
+$('clr').onclick=()=>{if(confirm('受付記録をすべて消します。よろしいですか？')){checks={};S.set('checks',checks);render()}};
+render();
+</script>
+</body>
+</html>
