@@ -1,0 +1,227 @@
+:root {
+  --ink: #12263a;
+  --muted: #5d6f80;
+  --bg: #eef3f7;
+  --panel: #ffffff;
+  --line: #d5dee6;
+  --accent: #0b6fa4;
+  --on: #0b8a5b;
+  --on-bg: #e1f5ec;
+  --off-bg: #eceff2;
+  --warn: #b25a00;
+  --warn-bg: #fff0dc;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+  line-height: 1.6;
+}
+
+.card {
+  max-width: 880px;
+  margin: 0 auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+h1 { margin: 0 0 4px; font-size: 22px; }
+h2 { margin: 0; font-size: 18px; }
+.lead { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.updated { font-size: 12px; color: var(--muted); }
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+button:focus-visible { outline: 3px solid #f2b705; outline-offset: 2px; }
+
+.btn {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+.btn:hover { background: #095a86; }
+.btn.ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.btn.ghost:hover { background: #e6f2f9; }
+
+.message { text-align: center; color: var(--muted); padding: 24px 0; }
+.message.error { color: #b3261e; }
+
+/* 場一覧 */
+.summary { font-size: 14px; margin: 0 0 10px; }
+.stadium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.stadium {
+  text-align: left;
+  background: var(--off-bg);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.stadium .name { display: block; font-weight: 700; font-size: 16px; }
+.stadium .state { display: block; font-size: 12px; margin-top: 2px; }
+.stadium.open {
+  background: var(--on-bg);
+  color: var(--ink);
+  border-color: #9bd6bb;
+}
+.stadium.open .state { color: var(--on); font-weight: 700; }
+.stadium.open:hover { border-color: var(--on); }
+.stadium.warn { background: var(--warn-bg); color: var(--ink); border-color: #efc58f; }
+.stadium.warn .state { color: var(--warn); font-weight: 700; }
+.stadium:disabled { cursor: default; opacity: 0.75; }
+
+/* 詳細 */
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.race-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.race-header {
+  display: flex;
+  justify-content: space-between;
+  background: #e4edf4;
+  padding: 8px 12px;
+  font-weight: 700;
+}
+.race-header .closed { font-size: 12px; color: #e65100; }
+.race-sub { padding: 6px 12px 0; font-size: 14px; }
+.race-sub.dim { color: var(--muted); padding-top: 0; }
+
+.racer-list { padding: 6px 12px 10px; }
+.racer-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px solid #edf1f5;
+  font-size: 14px;
+}
+.racer-row:first-child { border-top: 0; }
+.waku {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  border: 1px solid #00000033;
+}
+.waku-1 { background: #fff; color: #000; }
+.waku-2 { background: #000; color: #fff; }
+.waku-3 { background: #d32f2f; color: #fff; }
+.waku-4 { background: #1565c0; color: #fff; }
+.waku-5 { background: #fdd835; color: #000; }
+.waku-6 { background: #2e9d4f; color: #fff; }
+.racer-meta { color: var(--muted); font-size: 12px; text-align: right; }
+
+@media (max-width: 480px) {
+  body { padding: 8px; }
+  .card { padding: 14px; }
+}
+
+/* ---- 選手データ表 ---- */
+.card { max-width: 1040px; }
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-top: 1px solid var(--line);
+}
+.racer-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 860px;
+  font-size: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.racer-table th, .racer-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #edf1f5;
+  white-space: nowrap;
+}
+.racer-table thead th {
+  background: #f4f7fa;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+}
+.racer-table thead th.grp {
+  color: var(--ink);
+  border-bottom: 2px solid var(--accent);
+}
+.racer-table thead th.grp-pv { border-bottom-color: #e08a00; }
+.racer-table thead th.pv { color: #8a5200; }
+
+/* 左2列は横スクロール時も固定 */
+.racer-table .c-waku, .racer-table .c-name {
+  position: sticky;
+  background: var(--panel);
+  z-index: 1;
+}
+.racer-table thead .c-waku, .racer-table thead .c-name { background: #f4f7fa; }
+.racer-table .c-waku { left: 0; width: 40px; }
+.racer-table .c-name { left: 40px; text-align: left; min-width: 120px; box-shadow: 2px 0 0 #edf1f5; }
+
+.rname { display: block; font-weight: 700; font-size: 14px; }
+.rno { display: block; font-size: 11px; color: var(--muted); }
+
+.racer-table td.strong { font-weight: 700; }
+.racer-table td.pv { background: #fffaf0; }
+.racer-table td.best { background: #ffe8a8; font-weight: 700; color: #7a4a00; }
+.warn-text { color: #b3261e; }
+
+.rank {
+  display: inline-block;
+  min-width: 28px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #eceff2;
+}
+.rank-A1 { background: #ffd9d6; color: #9c1c12; }
+.rank-A2 { background: #ffe9c7; color: #8a5200; }
+.rank-B1 { background: #dcecf8; color: #0b5c8c; }
+.rank-B2 { background: #eceff2; color: var(--muted); }
+
+.note { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+
+.race-card { margin-bottom: 16px; }

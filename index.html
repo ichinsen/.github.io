@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>本日のボートレース開催一覧</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="card">
+        <h1>本日のボートレース</h1>
+        <p class="lead" id="dateLabel"></p>
+
+        <!-- 一覧画面 -->
+        <section id="listView">
+            <div class="toolbar">
+                <button class="btn" id="fetchButton">最新の情報を取得</button>
+                <span class="updated" id="updatedAt"></span>
+            </div>
+            <p class="summary" id="summary"></p>
+            <div id="stadiumGrid" class="stadium-grid"></div>
+            <div id="listMessage" class="message"></div>
+        </section>
+
+        <!-- 詳細画面 -->
+        <section id="detailView" hidden>
+            <div class="detail-head">
+                <button class="btn ghost" id="backButton">一覧に戻る</button>
+                <h2 id="detailTitle"></h2>
+            </div>
+            <div id="raceContainer"></div>
+        </section>
+    </div>
+
+    <script>
+        // スタジアム番号 → 場名（全24場）
+        const STADIUMS = {
+            1: '桐生', 2: '戸田', 3: '江戸川', 4: '平和島', 5: '多摩川', 6: '浜名湖',
+            7: '蒲郡', 8: '常滑', 9: '津', 10: '三国', 11: 'びわこ', 12: '住之江',
+            13: '尼崎', 14: '鳴門', 15: '丸亀', 16: '児島', 17: '宮島', 18: '徳山',
+            19: '下関', 20: '若松', 21: '芦屋', 22: '福岡', 23: '唐津', 24: '大村'
+        };
+
+        const $ = (id) => document.getElementById(id);
+        const fetchButton = $('fetchButton');
+        const stadiumGrid = $('stadiumGrid');
+        const listMessage = $('listMessage');
+        const raceContainer = $('raceContainer');
+
+        let stadiumsData = {}; // 取得した programs.stadiums
+
+        // HTMLエスケープ（APIの文字列を安全に埋め込む）
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+
+        // 日本時間の「今日」を取得（端末のタイムゾーンに依存しない）
+        function todayJST() {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(new Date());
+            const get = (t) => parts.find((p) => p.type === t).value;
+            return { year: get('year'), month: get('month'), day: get('day') };
+        }
+
+        // 開催状況を判定する
+        // 中止・順延の日は day_number が null になり、day_number_source が「中止」「順延」になる
+        function getStatus(stadium) {
+            const races = stadium && stadium.races ? Object.values(stadium.races) : [];
+            if (races.length === 0) return { type: 'none', count: 0 };
+            const active = races.filter((r) => r.closed_at && r.day_number != null);
+            if (active.length > 0) return { type: 'open', count: active.length };
+            const src = races.map((r) => r.day_number_source).find((s) => s === '中止' || s === '順延');
+            return { type: 'warn', label: src || '開催なし' };
+        }
+
+        async function loadToday() {
+            fetchButton.disabled = true;
+            stadiumGrid.innerHTML = '';
+            $('summary').textContent = '';
+            listMessage.className = 'message';
+            listMessage.textContent = 'データを取得中...';
+
+            try {
+                const { year, month, day } = todayJST();
+                $('dateLabel').textContent = `${year}年${Number(month)}月${Number(day)}日の開催状況`;
+
+                const url = `https://boatraceopenapi.github.io/api/v1/${year}/${year}${month}${day}.json`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`データの取得に失敗しました (HTTP ${response.status})`);
+                }
+                const data = await response.json();
+                stadiumsData = (data.programs && data.programs.stadiums) || {};
+
+                renderList();
+                const now = new Date();
+                $('updatedAt').textContent = `取得: ${now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })}`;
+                listMessage.textContent = '';
+            } catch (error) {
+                console.error('エラー:', error);
+                listMessage.className = 'message error';
+                listMessage.innerHTML = `データの取得に失敗しました。<br><small>${esc(error.message)}</small>`;
+            } finally {
+                fetchButton.disabled = false;
+            }
+        }
+
+        function renderList() {
+            let openCount = 0;
+            let html = '';
+
+            for (let n = 1; n <= 24; n++) {
+                const status = getStatus(stadiumsData[String(n)]);
+                const name = STADIUMS[n];
+                if (status.type === 'open') {
+                    openCount++;
+                    html += `<button class="stadium open" data-id="${n}">
+                        <span class="name">${esc(name)}</span>
+                        <span class="state">開催中（${status.count}R）</span>
+                    </button>`;
+                } else if (status.type === 'warn') {
+                    html += `<button class="stadium warn" disabled>
+                        <span class="name">${esc(name)}</span>
+                        <span class="state">${esc(status.label)}</span>
+                    </button>`;
+                } else {
+                    html += `<button class="stadium" disabled>
+                        <span class="name">${esc(name)}</span>
+                        <span class="state">開催なし</span>
+                    </button>`;
+                }
+            }
+            stadiumGrid.innerHTML = html;
+            $('summary').textContent = `本日の開催: ${openCount}場 / 全24場（開催中の場をタップするとレースと出場選手を表示します）`;
+        }
+
+        // ---- 表示用ヘルパー ----
+        const RANK_FALLBACK = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2' };
+        const num = (v, d) => (v == null || v === '' || isNaN(v)) ? '—' : Number(v).toFixed(d);
+        const pct = (v) => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(1) + '%';
+
+        function fmtST(v) {
+            if (v == null || isNaN(v)) return '—';
+            v = Number(v);
+            return v < 0 ? `F.${String(Math.round(-v * 100)).padStart(2, '0')}` : v.toFixed(2);
+        }
+        function fmtAdj(v) {
+            if (v == null || isNaN(v)) return '—';
+            v = Number(v);
+            return v === 0 ? '0' : (v > 0 ? '+' : '') + v.toFixed(1);
+        }
+        function fmtRank(r) {
+            return r.rank_number_source || RANK_FALLBACK[r.rank_number] || '—';
+        }
+
+        function buildRacerTable(race) {
+            if (!race.racers || Object.keys(race.racers).length === 0) {
+                return '<p class="message">選手データ準備中</p>';
+            }
+            const previewRacers = (race.preview && race.preview.racers) || {};
+            const racers = Object.values(race.racers).sort((a, b) => a.entry_number - b.entry_number);
+
+            // 展示タイムの最速を強調
+            const times = racers
+                .map((r) => (previewRacers[r.entry_number] || {}).exhibition_time)
+                .filter((t) => t != null && !isNaN(t) && t > 0);
+            const best = times.length ? Math.min(...times) : null;
+
+            const rows = racers.map((r) => {
+                const p = previewRacers[r.entry_number] || {};
+                const isBest = best != null && Number(p.exhibition_time) === best;
+                return `<tr>
+                    <td class="c-waku"><span class="waku waku-${esc(r.entry_number)}">${esc(r.entry_number)}</span></td>
+                    <td class="c-name"><span class="rname">${esc(r.name)}</span><span class="rno">${esc(r.number)}</span></td>
+                    <td><span class="rank rank-${esc(fmtRank(r))}">${esc(fmtRank(r))}</span></td>
+                    <td>${r.age != null ? esc(r.age) + '歳' : '—'}</td>
+                    <td>${num(r.weight, 1)}</td>
+                    <td>${r.flying_count ? '<b class="warn-text">' + esc(r.flying_count) + '</b>' : (r.flying_count === 0 ? '0' : '—')}</td>
+                    <td>${num(r.average_start_timing, 2)}</td>
+                    <td class="strong">${num(r.national_win_rate, 2)}</td>
+                    <td>${pct(r.national_top_2_percent)}</td>
+                    <td class="strong">${num(r.local_win_rate, 2)}</td>
+                    <td>${pct(r.local_top_2_percent)}</td>
+                    <td class="pv${isBest ? ' best' : ''}">${num(p.exhibition_time, 2)}</td>
+                    <td class="pv">${num(p.tilt_adjustment, 1)}</td>
+                    <td class="pv">${num(p.weight, 1)}</td>
+                    <td class="pv">${fmtAdj(p.weight_adjustment)}</td>
+                    <td class="pv">${fmtST(p.start_timing)}</td>
+                </tr>`;
+            }).join('');
+
+            const hasPreview = Object.keys(previewRacers).length > 0;
+            return `<div class="table-wrap">
+                <table class="racer-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" class="c-waku">枠</th>
+                            <th rowspan="2" class="c-name">選手</th>
+                            <th colspan="9" class="grp">出走表</th>
+                            <th colspan="5" class="grp grp-pv">直前情報</th>
+                        </tr>
+                        <tr>
+                            <th>級別</th><th>年齢</th><th>体重</th><th>F数</th><th>平均ST</th>
+                            <th>全国勝率</th><th>全国2連率</th><th>当地勝率</th><th>当地2連率</th>
+                            <th class="pv">展示タイム</th><th class="pv">チルト</th><th class="pv">体重</th><th class="pv">体重調整</th><th class="pv">展示ST</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>${hasPreview ? '' : '<p class="note">直前情報は締切の30分前ごろから順次表示されます。</p>'}`;
+        }
+
+        function showDetail(stadiumNumber) {
+            const stadium = stadiumsData[String(stadiumNumber)];
+            $('detailTitle').textContent = `${STADIUMS[stadiumNumber]}ボートレース場`;
+
+            const races = Object.entries((stadium && stadium.races) || {})
+                .sort((a, b) => Number(a[0]) - Number(b[0]));
+
+            let html = '';
+            for (const [raceNumber, race] of races) {
+                const title = race.title || 'タイトル未定';
+                const subtitle = race.subtitle || '';
+                const closedAt = race.closed_at ? `締切 ${race.closed_at.slice(11, 16)}` : '';
+
+                const racersHtml = buildRacerTable(race);
+
+                html += `<div class="race-card">
+                    <div class="race-header">
+                        <span>第${esc(raceNumber)}レース</span>
+                        <span class="closed">${esc(closedAt)}</span>
+                    </div>
+                    <div class="race-sub"><strong>${esc(title)}</strong></div>
+                    ${subtitle ? `<div class="race-sub dim">${esc(subtitle)}</div>` : ''}
+                    ${racersHtml}
+                </div>`;
+            }
+
+            raceContainer.innerHTML = html || '<p class="message">レース情報がありません。</p>';
+            $('listView').hidden = true;
+            $('detailView').hidden = false;
+            window.scrollTo(0, 0);
+        }
+
+        // イベント
+        fetchButton.addEventListener('click', loadToday);
+        stadiumGrid.addEventListener('click', (e) => {
+            const btn = e.target.closest('.stadium.open');
+            if (btn) showDetail(Number(btn.dataset.id));
+        });
+        $('backButton').addEventListener('click', () => {
+            $('detailView').hidden = true;
+            $('listView').hidden = false;
+        });
+
+        // 開いたときに自動で取得
+        loadToday();
+    </script>
+</body>
+</html>
